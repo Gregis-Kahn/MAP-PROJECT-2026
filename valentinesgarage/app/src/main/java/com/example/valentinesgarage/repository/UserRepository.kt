@@ -7,6 +7,8 @@ class UserRepository(
     private val dao: UserDao
 ) {
 
+    val allUsers = dao.getAllUsers()
+
     suspend fun insertUser(user: User) {
         dao.insertUser(user)
     }

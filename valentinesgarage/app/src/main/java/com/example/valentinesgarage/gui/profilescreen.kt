@@ -13,7 +13,8 @@ import com.example.valentinesgarage.data.entities.User
 @Composable
 fun ProfileScreen(
     user: User,
-    truckViewModel: TruckViewModel
+    truckViewModel: TruckViewModel,
+    onLogout: () -> Unit
 ) {
 
     val trucks by truckViewModel.allTrucks.collectAsState(initial = emptyList())
@@ -106,9 +107,7 @@ fun ProfileScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = {
-                // logout later
-            },
+            onClick = { onLogout() },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Logout")

@@ -17,6 +17,8 @@ class UserViewModel(application: Application)
     private val repository =
         UserRepository(dao)
 
+    val allUsers = repository.allUsers
+
     fun insertUser(user: User) {
 
         viewModelScope.launch {

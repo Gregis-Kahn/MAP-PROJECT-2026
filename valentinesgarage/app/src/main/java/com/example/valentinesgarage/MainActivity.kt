@@ -32,6 +32,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.example.valentinesgarage.gui.TruckDetailsScreen
 import com.example.valentinesgarage.viewmodel.TaskViewModel
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,7 +149,10 @@ fun ValentineApp() {
                                 )
                             } else {
                                 HomeScreen(
-                                    currentUser?.role ?: "Employee",
+                                    role = currentUser?.role ?: "Employee",
+                                    truckViewModel = truckViewModel,
+                                    taskViewModel = taskViewModel,
+                                    userViewModel = userViewModel,
                                     onAddCarClick = { showAddCarScreen = true }
                                 )
                             }
@@ -184,7 +190,12 @@ fun ValentineApp() {
 
                                 ProfileScreen(
                                     user = user,
-                                    truckViewModel = truckViewModel
+                                    truckViewModel = truckViewModel,
+                                    onLogout ={
+                                        isLoggedIn = false
+                                        currentUser = null
+                                        currentDestination = AppDestinations.HOME
+                                    }
                                 )
                             }
                         }
@@ -374,11 +385,24 @@ fun SignupScreen(
 @Composable
 fun HomeScreen(
     role: String,
+    truckViewModel: TruckViewModel,
+    taskViewModel: TaskViewModel,
+    userViewModel: UserViewModel,
     onAddCarClick: () -> Unit
 ) {
+
     when (role) {
-        "Admin" -> AdminDashboard()
-        else -> EmployeeDashboard(onAddCarClick)
+
+        "Admin" -> AdminDashboard(
+            userViewModel = userViewModel,
+            truckViewModel = truckViewModel
+        )
+
+        else -> EmployeeDashboard(
+            truckViewModel = truckViewModel,
+            taskViewModel = taskViewModel,
+            onAddCarClick = onAddCarClick
+        )
     }
 }
 
@@ -398,60 +422,230 @@ fun CarsScreen(role: String) {
 
 
 @Composable
-fun AdminDashboard() {
+fun AdminDashboard(
+    userViewModel: UserViewModel,
+    truckViewModel: TruckViewModel
+) {
 
-    Column(modifier = Modifier.padding(24.dp)) {
+    val users by userViewModel.allUsers.collectAsState(initial = emptyList())
+    val trucks by truckViewModel.allTrucks.collectAsState()
 
-        Text("Admin Dashboard", style = MaterialTheme.typography.headlineSmall)
+    val mechanics = users.filter { it.role == "Employee" }
 
-        Spacer(modifier = Modifier.height(16.dp))
+    val completedRepairs =
+        trucks.count { it.condition == "Fixed" }
 
-        Text("Company Overview")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Admin Dashboard",
+            style = MaterialTheme.typography.headlineMedium
+        )
 
-        Text("Total Mechanics: 5")
-        Text("Cars in Garage: 12")
-        Text("Completed Repairs: 8")
+        Spacer(modifier = Modifier.height(20.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
 
-        Text("Employee Progress:")
+            DashboardCard(
+                title = "Mechanics",
+                value = mechanics.size.toString()
+            )
 
-        Text("- John: 3 cars fixed")
-        Text("- Mike: 2 cars pending")
+            DashboardCard(
+                title = "Garage Trucks",
+                value = trucks.size.toString()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        DashboardCard(
+            title = "Completed Repairs",
+            value = completedRepairs.toString()
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Employee Details",
+            style = MaterialTheme.typography.titleLarge
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn {
+
+            items(mechanics) { mechanic ->
+
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    elevation = CardDefaults.elevatedCardElevation(6.dp)
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+
+                        Text(
+                            text = mechanic.fullName,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text("Email: ${mechanic.email}")
+                        Text("Role: ${mechanic.role}")
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        HorizontalDivider()
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Garage Employee",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun EmployeeDashboard(
-    onAddCarClick: () -> Unit
+fun DashboardCard(
+    title: String,
+    value: String
 ) {
-    Column(
+
+    ElevatedCard(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .width(170.dp)
+            .height(120.dp),
+        elevation = CardDefaults.elevatedCardElevation(8.dp)
     ) {
 
-        Column {
-            Text("Employee Dashboard", style = MaterialTheme.typography.headlineSmall)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineLarge
+            )
+        }
+    }
+}
+@Composable
+fun EmployeeDashboard(
+    truckViewModel: TruckViewModel,
+    taskViewModel: TaskViewModel,
+    onAddCarClick: () -> Unit
+) {
+
+    val trucks by truckViewModel.allTrucks.collectAsState()
+
+    var selectedTruck by remember {
+        mutableStateOf<Truck?>(null)
+    }
+
+    if (selectedTruck != null) {
+
+        TruckDetailsScreen(
+
+            truck = selectedTruck!!,
+
+            taskViewModel = taskViewModel,
+
+            onBackClick = {
+                selectedTruck = null
+            }
+        )
+
+    } else {
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+        ) {
+
+            Text(
+                "Employee Dashboard",
+                style = MaterialTheme.typography.headlineSmall
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Your Checked-in Cars:")
+            Button(
+                onClick = onAddCarClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Check in New Car")
+            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Text("Go to Cars tab to view real trucks")
-        }
+            Text(
+                "Checked-in Vehicles",
+                style = MaterialTheme.typography.titleLarge
+            )
 
+            Spacer(modifier = Modifier.height(12.dp))
 
-        Button(
-            onClick = onAddCarClick,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Check in New Car")
+            LazyColumn {
+
+                items(trucks) { truck ->
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    ) {
+
+                        Column(
+                            modifier = Modifier
+                                .padding(12.dp)
+                        ) {
+
+                            Text("Truck: ${truck.truckName}")
+                            Text("Owner: ${truck.ownerName}")
+                            Text("Issue: ${truck.issue}")
+                            Text("Condition: ${truck.condition}")
+
+                            Spacer(
+                                modifier = Modifier.height(8.dp)
+                            )
+
+                            Button(
+                                onClick = {
+                                    selectedTruck = truck
+                                }
+                            ) {
+                                Text("Open Details")
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
