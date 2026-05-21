@@ -44,7 +44,7 @@ fun AdminTaskMonitorScreen(
                         modifier = Modifier.padding(12.dp)
                     ) {
 
-                        Text("Task: ${task.notes}")
+                        Text("Task: ${task.taskName}")
 
                         Text(
                             "Status: ${
